@@ -10,19 +10,17 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // Build the plugin as a shared library
-    // For C-only libraries, we create an empty module
-    const lib = b.addLibrary(.{
-        .name = "mosquitto_message_logger",
-        .root_module = b.createModule(.{
-            .target = target,
-            .optimize = optimize,
-        }),
-        .linkage = .dynamic,
+    // Build the plugin as a shared library.
+    // C sources, include paths and libc linking are configured on the module
+    // (as required by the Zig 0.16 build API).
+    const mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
     });
 
-    // Add C source file directly to the library
-    lib.addCSourceFile(.{
+    // Add C source file directly to the module
+    mod.addCSourceFile(.{
         .file = b.path("mosquitto_message_logger.c"),
         .flags = &[_][]const u8{
             "-Wall",
@@ -33,12 +31,15 @@ pub fn build(b: *std.Build) void {
         },
     });
 
-    // Link libc
-    lib.linkLibC();
-
     // Add include paths from mosquitto dependency
-    lib.addIncludePath(mosquitto_dep.path("include"));
-    lib.addIncludePath(mosquitto_dep.path("src"));
+    mod.addIncludePath(mosquitto_dep.path("include"));
+    mod.addIncludePath(mosquitto_dep.path("src"));
+
+    const lib = b.addLibrary(.{
+        .name = "mosquitto_message_logger",
+        .root_module = mod,
+        .linkage = .dynamic,
+    });
 
     // For plugins, allow undefined symbols (resolved at runtime by mosquitto)
     if (target.result.os.tag == .linux or target.result.os.tag == .macos) {
@@ -107,17 +108,14 @@ pub fn build(b: *std.Build) void {
 
     for (linux_targets, target_names) |linux_target, target_name| {
         const resolved_target = b.resolveTargetQuery(linux_target);
-        
-        const target_lib = b.addLibrary(.{
-            .name = "mosquitto_message_logger",
-            .root_module = b.createModule(.{
-                .target = resolved_target,
-                .optimize = optimize,
-            }),
-            .linkage = .dynamic,
+
+        const target_mod = b.createModule(.{
+            .target = resolved_target,
+            .optimize = optimize,
+            .link_libc = true,
         });
 
-        target_lib.addCSourceFile(.{
+        target_mod.addCSourceFile(.{
             .file = b.path("mosquitto_message_logger.c"),
             .flags = &[_][]const u8{
                 "-Wall",
@@ -128,9 +126,14 @@ pub fn build(b: *std.Build) void {
             },
         });
 
-        target_lib.linkLibC();
-        target_lib.addIncludePath(mosquitto_dep.path("include"));
-        target_lib.addIncludePath(mosquitto_dep.path("src"));
+        target_mod.addIncludePath(mosquitto_dep.path("include"));
+        target_mod.addIncludePath(mosquitto_dep.path("src"));
+
+        const target_lib = b.addLibrary(.{
+            .name = "mosquitto_message_logger",
+            .root_module = target_mod,
+            .linkage = .dynamic,
+        });
 
         // Allow undefined symbols for plugins (resolved at runtime by mosquitto)
         if (resolved_target.result.os.tag == .linux or resolved_target.result.os.tag == .macos) {

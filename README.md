@@ -96,7 +96,7 @@ zig build all -Doptimize=ReleaseSafe
 Binaries will be saved to the `zig-out/dist/` directory.
 
 **Requirements:**
-- Zig 0.15.1 or later: [Download](https://ziglang.org/download/) or `brew install zig`
+- Zig 0.16.0 or later: [Download](https://ziglang.org/download/) or `brew install zig`
 - `just` command runner (optional): `brew install just`
 
 **Advantages of Zig:**
